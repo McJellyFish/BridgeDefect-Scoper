@@ -520,5 +520,3 @@ Project/
 └── .env # Environment variables found in hidden files
 =======
 └── .env # Environment variables found in hidden files
-
-> > > > > > > 835f1921b44712b24a058a68da9cb846e1f9c8e4
