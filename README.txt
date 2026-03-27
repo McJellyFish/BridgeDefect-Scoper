@@ -2,9 +2,6 @@
 MULTIMODAL BRIDGE DEFECT SCOPER
 ================================================================================
 
-Author(s): Sai Praneetha, Junjie Ma, I Chen Sung
-Date: 12/03/2025
-Course: AIT 526 NLP - Natural Language Processing
 Author(s): Junjie Ma, Tanmay Sahasrabudhe, Sanchana Mohnraj
 Date: 03/26/2026
 Course: AIT 626 NLP - Natural Language Processing
