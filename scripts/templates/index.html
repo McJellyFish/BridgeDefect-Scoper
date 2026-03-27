@@ -1,0 +1,357 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Multimodal Bridge Defect Scoper</title>
+  <script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;700;900&display=swap" rel="stylesheet"/>
+  <style>
+    input[type="file"]::file-selector-button { display: none; }
+    #imageModal { display: none; }
+    .pointer-events-none { filter: grayscale(0.7); }
+    #uploadArea { transition: all 0.3s ease-in-out; }
+    #uploadArea:hover {
+      transform: scale(1.02);
+      border-color: #3b82f6;
+      background-color: #eff6ff;
+      box-shadow: 0 0 20px rgba(59, 130, 246, 0.2);
+    }
+  </style>
+</head>
+
+<body class="bg-[#F5F7FA] font-[Inter] text-[#333] min-h-screen flex flex-col">
+
+  <!-- Header -->
+  <header class="bg-white border-b border-gray-200 py-4 shadow-sm">
+    <div class="container mx-auto flex flex-col items-center justify-center">
+      <div class="flex items-center gap-3">
+        <div class="w-6 h-6 rounded-full bg-blue-500 flex items-center justify-center">
+          <svg class="w-3.5 h-3.5 text-white" viewBox="0 0 48 48" fill="currentColor">
+            <path d="M24 4C25.8 14.2 33.8 22.2 44 24C33.8 25.8 25.8 33.8 24 44C22.2 33.8 14.2 25.8 4 24C14.2 22.2 22.2 14.2 24 4Z"/>
+          </svg>
+        </div>
+        <h1 class="text-xl font-semibold text-gray-800 tracking-tight">Multimodal Bridge Defect Scoper</h1>
+      </div>
+      <p class="text-sm text-gray-500 text-center mt-1">Bridge inspection and Defect Analyzer</p>
+    </div>
+  </header>
+
+  <!-- Main -->
+  <main class="flex-grow overflow-auto">
+    <div class="container mx-auto px-4 flex flex-col items-center max-w-5xl {% if results %}pt-8 pb-2{% else %}py-8{% endif %}">
+  <h1 class="text-xl font-bold mb-3 text-center">Analyze Defects from Bridge Images or Text</h1>
+
+
+      <!-- Validation Message -->
+      <div id="validationMessage" class="hidden w-full max-w-2xl mb-6">
+        <div class="bg-red-100 text-red-700 border border-red-300 p-3 rounded-md text-center text-sm font-medium">
+          Please upload an image or enter a text description before analyzing.
+        </div>
+      </div>
+
+      <!-- Flash Messages -->
+      {% with messages = get_flashed_messages(with_categories=true) %}
+      {% if messages %}
+        <div class="w-full max-w-2xl mb-6">
+          {% for category, message in messages %}
+            {% if category == 'error' %}
+              <div class="bg-red-100 text-red-700 border border-red-300 p-3 rounded-md text-center mb-2">{{ message }}</div>
+            {% elif category == 'success' %}
+              <div class="bg-green-100 text-green-700 border border-green-300 p-3 rounded-md text-center mb-2">{{ message }}</div>
+            {% endif %}
+          {% endfor %}
+        </div>
+      {% endif %}
+      {% endwith %}
+
+      <!-- Upload Form -->
+     <form action="/" method="POST" enctype="multipart/form-data"
+      class="w-full bg-white p-6 border rounded-xl shadow space-y-4 {% if results %}hidden{% endif %}"
+      id="analysisForm">
+
+
+        <!-- Upload / Text Section -->
+        <div id="inputSection" class="grid md:grid-cols-2 gap-6">
+
+          <!-- Image Upload -->
+          <div id="uploadArea"
+            class="relative flex flex-col items-center justify-center p-6 text-center border-2 border-dashed border-gray-300 rounded-xl bg-gradient-to-b from-gray-50 to-gray-100 transition-all cursor-pointer group {% if image_path %}hidden{% endif %}">
+            <div class="text-blue-500 mb-4 transition-transform duration-300 group-hover:scale-110">
+              <svg xmlns="http://www.w3.org/2000/svg" class="w-16 h-16 mx-auto" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                      d="M3 7a2 2 0 012-2h3l2-2h4l2 2h3a2 2 0 012 2v12a2 2 0 01-2 2H5a2 2 0 01-2-2V7z" />
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                      d="M12 11a3 3 0 110 6 3 3 0 010-6z" />
+              </svg>
+            </div>
+            <p class="text-base font-semibold text-gray-700 mb-1">Drop image here</p>
+            <p class="text-sm text-gray-500 mb-4">or click to upload (PNG, JPG, JPEG)</p>
+
+            <input id="image" name="image" type="file" accept="image/*"
+                   class="absolute inset-0 opacity-0 cursor-pointer z-10" onchange="handleImageUpload(event)"/>
+
+            <label for="image"
+                   class="opacity-0 group-hover:opacity-100 transition-opacity bg-blue-500 text-white font-semibold px-5 py-2 rounded-lg shadow hover:bg-blue-600 cursor-pointer z-20">
+              Upload Image
+            </label>
+          </div>
+
+          <!-- Text Input -->
+          <div class="flex flex-col {% if image_path %}hidden{% endif %}" id="textInputArea">
+            <label for="defect_description" class="text-sm font-medium text-gray-700 mb-2">
+              Type a text description:
+            </label>
+            <textarea id="defect_description" name="defect_description"
+                      class="flex-grow rounded-lg border-gray-300 bg-gray-50 placeholder-gray-400 focus:ring-blue-400 focus:border-blue-400 min-h-[140px]"
+                      placeholder="e.g., 'Significant spalling observed on the underside of the deck...'">{{ text_input or '' }}</textarea>
+          </div>
+        </div>
+
+        <!-- Image Thumbnail (client-side preview) -->
+        <div id="imagePreviewContainer" class="hidden flex flex-col items-center">
+          <div class="relative">
+            <img id="imageThumbnail" src="" alt="Preview"
+                 class="rounded-lg object-cover max-h-64 border border-gray-300 shadow cursor-pointer"
+                 onclick="openModal()"/>
+            <button type="button"
+                    onclick="removeImage()"
+                    class="absolute top-1 right-1 bg-red-500 text-white rounded-full w-6 h-6 flex items-center justify-center hover:bg-red-600">
+              ×
+            </button>
+          </div>
+        </div>
+
+        {% if not image_path %}
+        <div class="text-center">
+          <button type="submit"
+                  class="mx-auto w-full sm:w-auto h-10 px-6 bg-blue-500 text-white text-base font-bold rounded-lg shadow hover:bg-blue-600 transition">
+            Analyze Defect
+          </button>
+        </div>
+        {% endif %}
+
+      <!-- Show original image preview when results are rendered -->
+       {% if image_path and not results %}
+          <div class="md:col-span-2 flex flex-col items-center justify-center p-6 bg-white border border-gray-200 rounded-2xl shadow-sm">
+            <h4 class="text-lg font-semibold text-gray-700 mb-3">Original Image</h4>
+            <img src="{{ url_for('serve_uploaded_file', filename=image_path.split('/')[-1]) }}" alt="Uploaded Image"
+            class="rounded-lg object-cover max-h-72 border border-gray-300 shadow">
+
+          </div>
+          {% endif %}
+        </div>
+
+      <!-- Image Modal -->
+      <div id="imageModal"
+           class="fixed inset-0 flex items-center justify-center bg-black bg-opacity-70 z-50 hidden"
+           onclick="closeModal()">
+        <img id="modalImage" src="" alt="Full preview"
+             class="max-h-[90vh] rounded-lg shadow-lg border-4 border-white">
+      </div>
+
+      <!-- Results Section -->
+      <div id="resultsContainer">
+        {% if results %}
+        <div class="w-full flex flex-col items-center">
+          <div class="w-full max-w-3xl">
+            <h3 class="text-xl font-bold mb-6 text-center">Analysis Results</h3>
+
+            {% if results.original_input %}
+            <div class="mb-6 text-center">
+              <h4 class="text-lg font-semibold text-gray-700 mb-3">Original Input</h4>
+              <div class="bg-gray-50 p-4 rounded-lg border text-left max-w-2xl mx-auto">
+                {{ results.original_input }}
+              </div>
+            </div>
+            {% endif %}
+
+            {% if labelled_image %}
+            <div class="mb-6 text-center">
+              <img src="{{ url_for('serve_labelled_file', filename=labelled_image.split('/')[-1]) }}" alt="Labeled Image"
+              class="mx-auto rounded-lg border shadow max-h-96">
+
+            </div>
+            {% endif %}
+
+            {% if results.valid is defined and not results.valid %}
+            <div class="bg-red-100 text-red-700 border border-red-300 p-4 rounded-md text-center">
+              {{ results.message }}
+            </div>
+            {% else %}
+
+            <div class="bg-white border rounded-xl p-6 shadow space-y-8">
+
+              {% if not image_path or (image_path and not results.defects) %}
+              <!-- Overall Severity -->
+              <div class="border-b border-gray-200 pb-6">
+                <h4 class="font-bold text-xl text-gray-800 mb-3">Overall Severity</h4>
+                {% if results.sections.overall_severity %}
+                <span class="text-sm font-bold text-white px-3 py-1 rounded-full {% if results.sections.overall_severity == 'High' %}bg-red-500{% elif results.sections.overall_severity == 'Medium' %}bg-yellow-500{% else %}bg-green-500{% endif %}">
+                  {{ results.sections.overall_severity }}
+                </span>
+                {% else %}
+                <span class="text-sm font-bold text-white px-3 py-1 rounded-full bg-gray-500">
+                  Unknown
+                </span>
+                {% endif %}
+              </div>
+              {% endif %}
+
+              <!-- 1. Overall Defects -->
+              {% if results.sections.defect_summary %}
+              <div class="border-b border-gray-200 pb-6">
+                <h4 class="font-bold text-xl text-gray-800 mb-3">Overall Defects</h4>
+                <div class="text-gray-700 text-base leading-relaxed">
+                  {{ results.sections.defect_summary | safe }}
+                </div>
+              </div>
+              {% endif %}
+
+              <!-- 2. Resolution -->
+              {% if results.sections.resolution_summary %}
+              <div class="border-b border-gray-200 pb-6">
+                <h4 class="font-bold text-xl text-gray-800 mb-3">Resolution</h4>
+                <div class="text-gray-700 text-base leading-relaxed">
+                  {{ results.sections.resolution_summary | safe }}
+                </div>
+              </div>
+              {% endif %}
+
+              <!-- 3. Defects Elaborated -->
+              {% if results.defects %}
+              <div class="border-b border-gray-200 pb-6">
+                <h4 class="font-bold text-xl text-gray-800 mb-4">Defects Elaborated</h4>
+                <div class="space-y-6">
+                  {% for defect in results.defects %}
+                  <div class="border border-gray-200 rounded-lg p-4">
+                    <div class="flex justify-between items-start mb-4">
+                      <h5 class="font-semibold text-lg text-gray-800">{{ defect.number }}. {{ defect.name }}</h5>
+                      <span class="text-sm font-bold text-white px-3 py-1 rounded-full {{ defect.severity_color }}">
+                        {{ defect.severity }}
+                      </span>
+                    </div>
+                    <div class="space-y-3 text-gray-700 text-base leading-relaxed">
+                      {% if 'engineering_assessment' in defect %}
+                      <div class="font-semibold text-gray-800">Engineering Assessment:</div>
+                      <div class="ml-4">{{ defect.engineering_assessment | safe }}</div>
+                      {% endif %}
+                      {% if 'safety_risks' in defect %}
+                      <div class="font-semibold text-gray-800">Safety Risks:</div>
+                      <div class="ml-4">{{ defect.safety_risks | safe }}</div>
+                      {% endif %}
+                      {% if 'recommended_actions' in defect %}
+                      <div class="font-semibold text-gray-800">Recommended Actions:</div>
+                      <div class="ml-4">{{ defect.recommended_actions | safe }}</div>
+                      {% endif %}
+                      {% if 'description' in defect and not ('engineering_assessment' in defect) %}
+                      <div class="ml-4">{{ defect.description | safe }}</div>
+                      {% endif %}
+                    </div>
+                  </div>
+                  {% endfor %}
+                </div>
+              </div>
+              {% endif %}
+
+              <!-- 4. Recommendations -->
+              {% if results.sections.further_recommendations %}
+              <div>
+                <h4 class="font-bold text-xl text-gray-800 mb-3">Recommendations</h4>
+                <div class="text-gray-700 text-base leading-relaxed">
+                  {{ results.sections.further_recommendations | safe }}
+                </div>
+              </div>
+              {% endif %}
+
+            </div>
+
+            {% endif %}
+
+            <div class="text-center mt-8">
+              <a href="{{ url_for('start_over') }}"
+                 class="inline-block bg-gray-200 hover:bg-gray-300 text-gray-800 font-semibold px-6 py-3 rounded-lg transition">
+                ⟲ Start Over
+              </a>
+            </div>
+          </div>
+        </div>
+        {% endif %}
+      </div>
+    </div>
+  </main>
+
+  <footer class="bg-white border-t border-gray-200 py-4 mt-auto w-full">
+    <div class="container mx-auto text-center text-sm text-gray-500">
+      <p>Multimodal Bridge Defect Scoper by Team 3.</p>
+      <p class="mt-1">Built under the guidance of Professor Liao.</p>
+    </div>
+  </footer>
+
+  <script>
+    const validationMessage = document.getElementById('validationMessage');
+    const uploadArea = document.getElementById('uploadArea');
+    const textInputArea = document.getElementById('textInputArea');
+    const imagePreviewContainer = document.getElementById('imagePreviewContainer');
+    const imageThumbnail = document.getElementById('imageThumbnail');
+    const imageModal = document.getElementById('imageModal');
+    const modalImage = document.getElementById('modalImage');
+    const textInput = document.getElementById('defect_description');
+    const imageInput = document.getElementById('image');
+    const resultsContainer = document.getElementById('resultsContainer');
+
+    function handleImageUpload(event) {
+      const file = event.target.files[0];
+      if (file && !file.type.startsWith('image/')) {
+        validationMessage.classList.remove('hidden');
+        validationMessage.querySelector('div').textContent = 'Only image files are allowed.';
+        event.target.value = '';
+        return;
+      }
+      if (file) {
+        validationMessage.classList.add('hidden');
+        const reader = new FileReader();
+        reader.onload = (e) => {
+          imageThumbnail.src = e.target.result;
+          modalImage.src = e.target.result;
+          uploadArea.classList.add('hidden');
+          textInputArea.classList.add('hidden');
+          imagePreviewContainer.classList.remove('hidden');
+          textInput.value = '';
+        };
+        reader.readAsDataURL(file);
+      }
+    }
+
+    function removeImage() {
+      imageInput.value = '';
+      imageThumbnail.src = '';
+      uploadArea.classList.remove('hidden');
+      textInputArea.classList.remove('hidden');
+      imagePreviewContainer.classList.add('hidden');
+      resultsContainer.innerHTML = '';
+    }
+
+    function openModal() { imageModal.classList.remove('hidden'); }
+    function closeModal() { imageModal.classList.add('hidden'); }
+
+    textInput.addEventListener('input', () => {
+      if (textInput.value.trim() !== '') {
+        uploadArea.classList.add('opacity-50', 'pointer-events-none');
+      } else {
+        uploadArea.classList.remove('opacity-50', 'pointer-events-none');
+      }
+      validationMessage.classList.add('hidden');
+    });
+
+    document.addEventListener('keydown', (e) => { if (e.key === 'Escape') closeModal(); });
+
+    // Button status indicator
+    document.querySelector('form').addEventListener('submit', function(e) {
+      const btn = document.querySelector('button[type="submit"]');
+      btn.disabled = true;
+      btn.textContent = 'Analyzing...';
+    });
+  </script>
+</body>
+</html>
