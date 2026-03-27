@@ -1,0 +1,10 @@
+2026-03-26 23:28:35,541 - __main__ - INFO - Application starting from: c:\Users\12939\OneDrive\Desktop\CS\AIT 614\bridge_scoper\AIT526_Team3_Project_System\scripts
+2026-03-26 23:28:35,541 - __main__ - INFO - Project root: c:\Users\12939\OneDrive\Desktop\CS\AIT 614\bridge_scoper\AIT526_Team3_Project_System
+2026-03-26 23:31:03,399 - __main__ - INFO - Processing image upload: 106_jpeg.rf.9d10fd344ef43294990a5fbccf888e4b.jpg
+2026-03-26 23:31:03,400 - __main__ - INFO - Image saved to: c:\Users\12939\OneDrive\Desktop\CS\AIT 614\bridge_scoper\AIT526_Team3_Project_System\dynamic\uploads\b449bcfb70010e3e_106_jpeg.rf.9d10fd344ef43294990a5fbccf888e4b.jpg
+2026-03-26 23:31:04,094 - __main__ - INFO - YOLO detection completed: b449bcfb70010e3e_106_jpeg.rf.9d10fd344ef43294990a5fbccf888e4b.jpg
+2026-03-26 23:31:08,656 - __main__ - INFO - LLM report generated successfully
+2026-03-26 23:31:56,311 - __main__ - INFO - Processing image upload: 949_jpeg.rf.1da87c61fd97089acb59b6e799218000.jpg
+2026-03-26 23:31:56,313 - __main__ - INFO - Image saved to: c:\Users\12939\OneDrive\Desktop\CS\AIT 614\bridge_scoper\AIT526_Team3_Project_System\dynamic\uploads\90e5d81b2b518b94_949_jpeg.rf.1da87c61fd97089acb59b6e799218000.jpg
+2026-03-26 23:31:56,672 - __main__ - INFO - YOLO detection completed: 90e5d81b2b518b94_949_jpeg.rf.1da87c61fd97089acb59b6e799218000.jpg
+2026-03-26 23:32:06,483 - __main__ - INFO - LLM report generated successfully
