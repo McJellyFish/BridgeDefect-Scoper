@@ -2,9 +2,15 @@
 MULTIMODAL BRIDGE DEFECT SCOPER
 ================================================================================
 
+<<<<<<< HEAD
 Author(s): Sai Praneetha, Junjie Ma, I Chen Sung
 Date: 12/03/2025
 Course: AIT 526 NLP - Natural Language Processing
+=======
+Author(s): Junjie Ma, Tanmay Sahasrabudhe, Sanchana Mohnraj
+Date: 03/26/2026
+Course: AIT 626 NLP - Natural Language Processing
+>>>>>>> 835f1921b44712b24a058a68da9cb846e1f9c8e4
 Project: Multimodal Bridge Defect Scoper
 Institution: George Mason University
 
@@ -509,4 +515,8 @@ Project/
 │
 ├── requirements.txt             # Python dependencies
 ├── README.txt                   
+<<<<<<< HEAD
 └── .env                         # Environment variables found in hidden files
+=======
+└── .env                         # Environment variables found in hidden files
+>>>>>>> 835f1921b44712b24a058a68da9cb846e1f9c8e4
