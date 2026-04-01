@@ -2,7 +2,7 @@
 """
 Main Flask Web Application
 
-Author(s): Sai Praneetha, Junjie Ma, I Chen Sung
+Author(s): Junjie Ma, Tanmay Sahasrabudhe, Sanchana Mohnraj
 Date: 12/03/2025
 Course: AIT 526 NLP - Natural Language Processing
 Project: Multimodal Bridge Defect Scoper
