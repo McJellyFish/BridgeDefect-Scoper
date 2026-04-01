@@ -53,14 +53,14 @@ NON_BRIDGE_MESSAGE = "Please provide input related to bridge defects or inspecti
 def _find_image(base_dir: str, stem: str):
     """
     Find image file with given stem name, trying multiple extensions.
-    
+
     Helper function that searches for an image file when the exact extension
     is unknown. Tries common image formats to locate the file.
-    
+
     Args:
         base_dir: Directory to search in
         stem: Base filename without extension (e.g., "1" for "1.jpg")
-    
+
     Returns:
         Full path to image file if found, None otherwise.
     """
@@ -79,20 +79,20 @@ def _find_image(base_dir: str, stem: str):
 def generate_case1_reports():
     """
     Batch-generate LLM reports for all image test cases.
-    
+
     This function processes all images in the ground truth dataset by:
     1. Running YOLO detection on each image
     2. Extracting detected defects and confidence scores
     3. Generating LLM reports using Gemini API
     4. Saving reports as JSON files in predictions folder
-    
+
     The workflow mirrors the main application (app_demo.py) to ensure
     consistency between evaluation and production use.
-    
+
     Output:
         JSON report files saved to evaluation_data/predictions/case1/reports/
         Labeled images saved to evaluation_data/predictions/case1/labeled_images/
-    
+
     Note:
         Skips files that already have generated reports to allow resumption
         of interrupted batch processing.
@@ -111,14 +111,15 @@ def generate_case1_reports():
                     img_num = int(os.path.splitext(filename)[0])
                     image_files.append((img_num, filename))
                 except ValueError:
-                    print(f"[warn] Skipping non-numeric image file: {filename}")
-        
+                    print(
+                        f"[warn] Skipping non-numeric image file: {filename}")
+
         # Sort by number to process in order
         image_files.sort(key=lambda x: x[0])
     else:
         print(f"[warn] Directory not found: {CASE1_ORIG_IMAGES}")
         return
-    
+
     print(f"  Found {len(image_files)} image files to process")
 
     for img_num, filename in image_files:
@@ -137,7 +138,8 @@ def generate_case1_reports():
         print(f"[info] case1_{img_id}: running YOLO on {filename}")
 
         # Run YOLO exactly like the app, but write labels to CASE1_LABELLED_DIR
-        labelled_filename, yolo_results = run_yolo(image_path, CASE1_LABELLED_DIR)
+        labelled_filename, yolo_results = run_yolo(
+            image_path, CASE1_LABELLED_DIR)
 
         detected_labels = []
         confidence_data = {}
@@ -200,19 +202,19 @@ def generate_case1_reports():
 def generate_case2_reports():
     """
     Batch-generate LLM reports for all text input test cases.
-    
+
     This function processes all text files in the ground truth dataset by:
     1. Reading text descriptions of bridge defects
     2. Validating bridge-related keywords (same logic as app_demo.py)
     3. Generating LLM reports using Gemini API
     4. Saving reports as JSON files in predictions folder
-    
+
     For text inputs, there is no YOLO detection step - only LLM analysis.
     The reports focus on overall assessment and severity rating.
-    
+
     Output:
         JSON report files saved to evaluation_data/predictions/case2/reports/
-    
+
     Note:
         Skips files that already have generated reports to allow resumption
         of interrupted batch processing.
@@ -232,13 +234,13 @@ def generate_case2_reports():
                     text_files.append((text_num, filename))
                 except ValueError:
                     print(f"[warn] Skipping non-numeric text file: {filename}")
-        
+
         # Sort by number to process in order
         text_files.sort(key=lambda x: x[0])
     else:
         print(f"[warn] Directory not found: {CASE2_INPUTS_DIR}")
         return
-    
+
     print(f"  Found {len(text_files)} text input files to process")
 
     for text_num, filename in text_files:
@@ -257,7 +259,8 @@ def generate_case2_reports():
         with open(in_path, "r", encoding="utf-8") as f:
             text_input = f.read().strip()
 
-        print(f"[info] case2_{text_id}: processing text (len={len(text_input)})")
+        print(
+            f"[info] case2_{text_id}: processing text (len={len(text_input)})")
 
         # EXACTLY like app_demo: keyword filter first
         lower = text_input.lower()
@@ -292,11 +295,11 @@ def generate_case2_reports():
 def main():
     """
     Main entry point for batch report generation.
-    
+
     Orchestrates generation of prediction reports for both test case types:
     - Case 1: Image-based test cases (YOLO + LLM)
     - Case 2: Text-based test cases (LLM-only)
-    
+
     Generated reports are saved to evaluation_data/predictions/ for subsequent
     evaluation against ground truth data.
     """

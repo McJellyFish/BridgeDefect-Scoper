@@ -12,8 +12,20 @@ This is the main Flask web application for the Bridge Defect Scoper system.
 It handles image and text input, coordinates YOLO detection and LLM report generation, and displays results through a web interface.
 """
 
+import re
+import json
+from yolo_model import run_yolo
+from llmreport_demo import generate_bridge_report, DEFECT_KNOWLEDGE_BASE
+from dotenv import load_dotenv
+from ultralytics import YOLO
 from flask import Flask, render_template, request, redirect, url_for, flash, session, send_from_directory
-import os, secrets, json, sys, shutil, markdown, logging
+import os
+import secrets
+import json
+import sys
+import shutil
+import markdown
+import logging
 import warnings
 
 
@@ -21,17 +33,12 @@ import warnings
 # Suppress warnings
 # ---------------------------------------------------------------------
 # Suppress pkg_resources deprecation warning from ultralytics
-warnings.filterwarnings('ignore', category=UserWarning, message='.*pkg_resources.*')
+warnings.filterwarnings('ignore', category=UserWarning,
+                        message='.*pkg_resources.*')
 
 # Suppress Werkzeug development server warnings
 logging.getLogger('werkzeug').setLevel(logging.ERROR)
 
-from ultralytics import YOLO
-from dotenv import load_dotenv
-from llmreport_demo import generate_bridge_report, DEFECT_KNOWLEDGE_BASE
-from yolo_model import run_yolo
-import json
-import re
 
 # ---------------------------------------------------------------------
 # Path setup
@@ -82,7 +89,8 @@ app.secret_key = os.getenv('FLASK_SECRET_KEY', secrets.token_hex(16))
 if not os.getenv('GEMINI_API_KEY'):
     logger.warning("GEMINI_API_KEY not found in environment variables")
     logger.warning(f"Checked .env file at: {env_path}")
-    logger.warning("Please run: python3 setup_env.py to configure environment variables")
+    logger.warning(
+        "Please run: python3 setup_env.py to configure environment variables")
 
 logger.info(f"Application starting from: {BASE_DIR}")
 logger.info(f"Project root: {PROJECT_ROOT}")
@@ -110,11 +118,11 @@ BRIDGE_KEYWORDS = [
 def clear_uploads():
     """
     Delete all files inside uploads, labels, and results folders.
-    
+
     Utility function to clean up temporary files generated during analysis.
     Used when starting a new analysis session or resetting the application.
     Safely handles both files and subdirectories.
-    
+
     Note:
         This only clears contents, not the folders themselves, as folders are created automatically if they don't exist.
     """
@@ -128,38 +136,37 @@ def clear_uploads():
                     shutil.rmtree(path, ignore_errors=True)
 
 
-
 # ---------------------------------------------------------------------
 # Hybrid Multi-Factor Severity Calculation
 # ---------------------------------------------------------------------
 def calculate_hybrid_severity(defect_name, confidence_data, detected_labels):
     """
     Calculate defect severity using hybrid multi-factor approach.
-    
+
     This function combines three factors to determine severity more accurately
     than using YOLO confidence alone:
-    
+
     1. YOLO Confidence Scores: Maximum confidence and detection count
        - Higher confidence indicates more certain detection
        - Multiple detections suggest widespread issue
-    
+
     2. Defect Type Criticality: Engineering knowledge about defect impact
        - Bridge cracks and water leakage are inherently more critical
        - Based on safety impact from knowledge base
-    
+
     3. Detection Count: Number of instances detected
        - More instances may indicate more severe problem
-    
+
     The algorithm applies different thresholds based on criticality:
     - High criticality (cracks, leakage): Lower thresholds for High severity
     - Medium criticality (deterioration): Moderate thresholds
     - Low criticality (repairs): Very high thresholds required
-    
+
     Args:
         defect_name: Name of the defect type (e.g., "bridge-crack")
         confidence_data: Dictionary mapping defect names to lists of confidence scores
         detected_labels: List of all detected defect names (for context)
-    
+
     Returns:
         Tuple of (severity_string, css_color_class):
         - severity_string: "Low", "Medium", "High", or "Unknown"
@@ -167,25 +174,28 @@ def calculate_hybrid_severity(defect_name, confidence_data, detected_labels):
     """
     # Normalize defect name: remove parentheses, convert to lowercase, replace spaces
     # This handles variations like "Bridge Crack", "bridge-crack", "bridge crack"
-    clean_name = defect_name.split('(')[0].strip().lower().replace(' ', '-').replace('*','')
-    
+    clean_name = defect_name.split(
+        '(')[0].strip().lower().replace(' ', '-').replace('*', '')
+
     # Special handling for "For Review" - always Unknown (grey)
     # These are low-confidence detections requiring human verification
     if clean_name == "for-review" or defect_name.lower() == "for review":
         return "Unknown", "bg-gray-500"
-    
+
     # Get confidence scores for this defect type
     # confidence_data maps defect names to lists of confidence scores (one per detection)
     confidences = confidence_data.get(clean_name, [])
-    
+
     # Fallback: if no confidence data, assume low severity
     if not confidences:
         return "Low", "bg-green-500"  # fallback
-    
+
     # Factor 1: YOLO Confidence Metrics
-    max_confidence = max(confidences)  # Highest confidence among all detections
-    detection_count = len(confidences)  # Number of times this defect was detected
-    
+    # Highest confidence among all detections
+    max_confidence = max(confidences)
+    # Number of times this defect was detected
+    detection_count = len(confidences)
+
     # Factor 2: Defect Type Criticality (from knowledge base safety impact)
     # Higher criticality scores mean defects are inherently more dangerous
     # These scores are based on engineering knowledge about bridge safety
@@ -196,9 +206,9 @@ def calculate_hybrid_severity(defect_name, confidence_data, detected_labels):
         "repair": 1,                    # Low - informational
         "for-review": 1                 # Low - needs verification
     }
-    
+
     defect_criticality = criticality_scores.get(clean_name, 1)
-    
+
     # Factor 3: Apply severity thresholds based on criticality
     # Different defect types have different thresholds to account for their inherent risk
     if defect_criticality == 3:  # High criticality defects (crack, leakage)
@@ -209,7 +219,7 @@ def calculate_hybrid_severity(defect_name, confidence_data, detected_labels):
             return "Medium", "bg-yellow-500"
         else:
             return "Low", "bg-green-500"
-    
+
     elif defect_criticality == 2:  # Medium criticality (deterioration)
         # Moderate thresholds: require higher confidence for High severity
         if max_confidence >= 0.8 and detection_count >= 3:
@@ -218,7 +228,7 @@ def calculate_hybrid_severity(defect_name, confidence_data, detected_labels):
             return "Medium", "bg-yellow-500"
         else:
             return "Low", "bg-green-500"
-    
+
     else:  # Low criticality (repair, for-review)
         # High thresholds: only very certain detections get Medium severity
         if max_confidence >= 0.9 and detection_count >= 5:
@@ -230,15 +240,15 @@ def calculate_hybrid_severity(defect_name, confidence_data, detected_labels):
 def get_severity_from_yolo_results(detected_labels, defect_name, confidence_data):
     """
     Wrapper function to maintain compatibility with existing code.
-    
+
     This function provides a backward-compatible interface to the hybrid severity calculation.
     It maintains the original function signature while using the enhanced multi-factor severity algorithm.
-    
+
     Args:
         detected_labels: List of all detected defect names
         defect_name: Name of the specific defect to calculate severity for
         confidence_data: Dictionary mapping defect names to confidence scores
-    
+
     Returns:
         Tuple of (severity_string, css_color_class)
     """
@@ -251,19 +261,19 @@ def get_severity_from_yolo_results(detected_labels, defect_name, confidence_data
 def parse_llm_report(llm_text: str, detected_labels: list = None, confidence_data=None):
     """
     Parse the LLM JSON response into structured sections for UI display.
-    
+
     Processes the raw text response from Gemini LLM and:
     - Handles error messages gracefully
     - Extracts JSON (with fallback regex extraction if needed)
     - Validates bridge-related content
     - Adds severity scores to detected defects
     - Structures data for template rendering
-    
+
     Args:
         llm_text: Raw text response from Gemini LLM (may contain JSON or error)
         detected_labels: List of defect names detected by YOLO (optional)
         confidence_data: Dictionary mapping defect names to confidence scores (optional)
-    
+
     Returns:
         Dictionary with structured report sections and defects, or error message
         if parsing fails or content is invalid.
@@ -293,7 +303,8 @@ def parse_llm_report(llm_text: str, detected_labels: list = None, confidence_dat
         # This handles cases where LLM might add explanatory text around the JSON
         json_match = re.search(r'\{.*\}', llm_text, re.DOTALL)
         if json_match:
-            print("DEBUG: Extracted JSON:", repr(json_match.group(0)))  # Debug print
+            print("DEBUG: Extracted JSON:", repr(
+                json_match.group(0)))  # Debug print
             try:
                 parsed = json.loads(json_match.group(0))
             except json.JSONDecodeError:
@@ -317,15 +328,18 @@ def parse_llm_report(llm_text: str, detected_labels: list = None, confidence_dat
         for i, defect in enumerate(defects):
             name = defect.get('name', '')
             # Calculate severity using multi-factor approach
-            severity, severity_color = get_severity_from_yolo_results(detected_labels, name, confidence_data)
+            severity, severity_color = get_severity_from_yolo_results(
+                detected_labels, name, confidence_data)
             defect['severity'] = severity  # Low, Medium, High, or Unknown
-            defect['severity_color'] = severity_color  # CSS class for UI styling
+            # CSS class for UI styling
+            defect['severity_color'] = severity_color
             defect['number'] = str(i + 1)  # Sequential numbering for display
 
     # Remove detailed_defects from sections to avoid duplication
     # We extract it to the defects array above with severity added
-    sections_clean = {k: v for k, v in parsed.items() if k != 'detailed_defects'}
-    
+    sections_clean = {k: v for k, v in parsed.items() if k !=
+                      'detailed_defects'}
+
     # Return structured results
     return {
         "sections": sections_clean,
@@ -336,7 +350,7 @@ def parse_llm_report(llm_text: str, detected_labels: list = None, confidence_dat
 # ---------------------------------------------------------------------
 # Routes
 # ---------------------------------------------------------------------
-# Flask route decorator and session handling patterns 
+# Flask route decorator and session handling patterns
 # References:
 #  https://flask.palletsprojects.com/en/stable/api/#sessions
 #  https://flask.palletsprojects.com/en/stable/api/
@@ -344,10 +358,10 @@ def parse_llm_report(llm_text: str, detected_labels: list = None, confidence_dat
 def index():
     """
     Render the main landing page of the web application.
-    
+
     This route displays the initial form where users can upload an image or enter a text description. 
     It preserves any text input from previous attempts to allow users to retry with the same input if there was an error.
-    
+
     Returns:
         Rendered HTML template (index.html) with empty results and any preserved text input from previous attempts.
     """
@@ -358,15 +372,17 @@ def index():
 # Flask file upload and request handling patterns
 # References:
 #  https://flask.palletsprojects.com/en/3.0.x/patterns/fileuploads/
+
+
 @app.route("/", methods=["POST"])
 def analyze():
     """
     Main analysis endpoint that processes user input (image or text).
-    
+
     This is the core function that handles two types of input:
     1. Image upload: Runs YOLO detection, then LLM analysis
     2. Text description: Validates bridge-related keywords, then LLM analysis
-    
+
     Workflow:
     - Validates input type (image file or text)
     - For images: Validates file type, runs YOLO detection, extracts defects
@@ -374,11 +390,11 @@ def analyze():
     - Generates structured JSON report using Gemini LLM
     - Calculates hybrid severity scores for detected defects
     - Saves results and redirects to results page
-    
+
     Returns:
         Redirect to results page on success, or back to index on error.
         Errors are logged and user-friendly messages are displayed.
-    
+
     Raises:
         Various exceptions during YOLO/LLM processing are caught and handled
         gracefully with user-friendly error messages flashed to the UI.
@@ -400,7 +416,7 @@ def analyze():
         # --------------------------
         if file and file.filename != "":
             logger.info(f"Processing image upload: {file.filename}")
-            
+
             if not file.mimetype.startswith("image/"):
                 logger.warning(f"Invalid file type: {file.mimetype}")
                 flash("Only image files are allowed.", "error")
@@ -413,13 +429,15 @@ def analyze():
 
             # Run YOLO and store labeled image
             try:
-                labelled_filename, yolo_results = run_yolo(image_path, LABELS_FOLDER)
+                labelled_filename, yolo_results = run_yolo(
+                    image_path, LABELS_FOLDER)
                 detected_labels = []
                 confidence_data = {}  # JSON serializable confidence data
                 logger.info(f"YOLO detection completed: {labelled_filename}")
             except Exception as e:
                 logger.error(f"YOLO detection failed: {str(e)}")
-                flash("Error processing image with YOLO model. Please try again.", "error")
+                flash(
+                    "Error processing image with YOLO model. Please try again.", "error")
                 return redirect(url_for("index"))
 
             if labelled_filename:
@@ -440,16 +458,20 @@ def analyze():
 
                     # Extract unique defect types detected (remove duplicate classes)
                     # Convert class IDs to integers, get unique set
-                    unique_classes = set(int(cls) for cls in yolo_results.boxes.cls)
+                    unique_classes = set(int(cls)
+                                         for cls in yolo_results.boxes.cls)
                     # Map class IDs to defect names, filter valid mappings
-                    detected_labels = [yolo_class_map[cls_id] for cls_id in unique_classes if cls_id in yolo_class_map]
-                    detected_labels = list(set(detected_labels))  # Remove duplicates
+                    detected_labels = [yolo_class_map[cls_id]
+                                       for cls_id in unique_classes if cls_id in yolo_class_map]
+                    detected_labels = list(
+                        set(detected_labels))  # Remove duplicates
 
                     # Extract confidence scores for each detection instance
                     # Store as list per defect type for severity calculation
                     for i, cls in enumerate(yolo_results.boxes.cls):
                         class_id = int(cls)
-                        conf = float(yolo_results.boxes.conf[i])  # Confidence score (0.0-1.0)
+                        # Confidence score (0.0-1.0)
+                        conf = float(yolo_results.boxes.conf[i])
                         class_name = yolo_class_map[class_id]
 
                         # Group confidence scores by defect type
@@ -465,12 +487,13 @@ def analyze():
                 if detected_labels:
                     # Case 1: YOLO detected defects - send labeled image with bounding boxes
                     # This helps LLM focus on detected areas and provides visual context
-                    image_for_llm = os.path.join(LABELS_FOLDER, labelled_filename) if labelled_filename else None
+                    image_for_llm = os.path.join(
+                        LABELS_FOLDER, labelled_filename) if labelled_filename else None
                 else:
                     # Case 2: No YOLO detections - send original image for LLM validation
                     # LLM can still analyze the image to confirm it's bridge-related
                     image_for_llm = image_path
-                
+
                 gemini_text = generate_bridge_report(
                     label_summary,
                     image_for_llm,
@@ -479,11 +502,13 @@ def analyze():
                 logger.info("LLM report generated successfully")
             except Exception as e:
                 logger.error(f"LLM report generation failed: {str(e)}")
-                flash("Error generating analysis report. Please check your API key and try again.", "error")
+                flash(
+                    "Error generating analysis report. Please check your API key and try again.", "error")
                 return redirect(url_for("index"))
 
             # Parse structured report into sections
-            parsed_report = parse_llm_report(gemini_text, detected_labels, confidence_data)
+            parsed_report = parse_llm_report(
+                gemini_text, detected_labels, confidence_data)
 
             results = parsed_report
 
@@ -496,7 +521,8 @@ def analyze():
             session["image_filename"] = filename
             session["labelled_image"] = labelled_image_path
             session["results_path"] = results_path
-            session["confidence_data"] = confidence_data  # Store JSON serializable confidence data
+            # Store JSON serializable confidence data
+            session["confidence_data"] = confidence_data
 
             return redirect(url_for("results"))
 
@@ -510,22 +536,26 @@ def analyze():
             # Validate text contains bridge-related keywords
             # Check if input contains any engineering/bridge terminology to filter
             # non-relevant inputs before expensive LLM API calls
-            matching_keywords = [kw for kw in BRIDGE_KEYWORDS if kw in text_clean.lower()]
+            matching_keywords = [
+                kw for kw in BRIDGE_KEYWORDS if kw in text_clean.lower()]
             print(f"SERVER LOG: Matching keywords: {matching_keywords}")
 
             if not matching_keywords:
                 # No bridge-related keywords found - reject without LLM call
                 print("SERVER LOG: Text validation failed - no bridge keywords found")
-                results = {"valid": False, "message": "Please provide input related to bridge defects or inspection.", "original_input": text_clean}
+                results = {
+                    "valid": False, "message": "Please provide input related to bridge defects or inspection.", "original_input": text_clean}
             else:
                 # Validation passed - proceed with LLM analysis
                 print("SERVER LOG: Text validation passed - calling LLM")
                 # Gemini report for text
-                gemini_text = generate_bridge_report(text_clean, image_path=None)
+                gemini_text = generate_bridge_report(
+                    text_clean, image_path=None)
                 print(f"SERVER LOG: LLM raw response: {repr(gemini_text)}")
 
                 # Parse structured report
-                parsed_report = parse_llm_report(gemini_text, detected_labels=[], confidence_data=None)
+                parsed_report = parse_llm_report(
+                    gemini_text, detected_labels=[], confidence_data=None)
                 print(f"SERVER LOG: Parsed report: {parsed_report}")
 
                 results = parsed_report
@@ -534,9 +564,11 @@ def analyze():
 
                 # Check if overall_severity is present
                 if 'sections' in results and 'overall_severity' not in results['sections']:
-                    print("SERVER LOG: WARNING - overall_severity missing from LLM response")
+                    print(
+                        "SERVER LOG: WARNING - overall_severity missing from LLM response")
                 else:
-                    print(f"SERVER LOG: overall_severity found: {results.get('sections', {}).get('overall_severity', 'N/A')}")
+                    print(
+                        f"SERVER LOG: overall_severity found: {results.get('sections', {}).get('overall_severity', 'N/A')}")
 
             # Save results
             results_path = os.path.join(RESULTS_FOLDER, "results.json")
@@ -550,9 +582,10 @@ def analyze():
             logger.warning("No input provided")
             flash("Please upload an image or enter a text description.", "error")
             return redirect(url_for("index"))
-        
+
     except Exception as e:
-        logger.error(f"Unexpected error in analyze route: {str(e)}", exc_info=True)
+        logger.error(
+            f"Unexpected error in analyze route: {str(e)}", exc_info=True)
         flash("An unexpected error occurred. Please try again.", "error")
         return redirect(url_for("index"))
 
@@ -561,13 +594,13 @@ def analyze():
 def results():
     """
     Display the analysis results page.
-    
+
     Retrieves previously saved analysis results from the session and displays them to the user. 
     Results include detected defects, LLM-generated report, and visual annotations (if image was uploaded).
-    
+
     Returns:
         Rendered HTML template with analysis results, or redirects to index if no results are found in session.
-    
+
     Note:
         Results are stored as JSON files and referenced via session to avoid storing large data in session cookies.
     """
@@ -595,13 +628,13 @@ def results():
 def start_over():
     """
     Reset the application state and clear all uploaded files.
-    
+
     This route clears:
     - All uploaded images and generated labels from dynamic folders
     - Session data (results, image references, etc.)
-    
+
     Useful for starting a fresh analysis session.
-    
+
     Returns:
         Redirect to the main index page.
     """
@@ -621,53 +654,54 @@ def start_over():
 def serve_uploaded_file(filename):
     """
     Serve uploaded image files to the web browser.
-    
+
     Flask route that allows the web interface to display original uploaded images. Files are served from the UPLOAD_FOLDER directory.
-    
+
     Args:
         filename: Name of the file to serve (from URL path)
-    
+
     Returns:
         File response with the requested image file.
     """
     return send_from_directory(UPLOAD_FOLDER, filename)
 
+
 @app.route("/labels/<path:filename>")
 def serve_labelled_file(filename):
     """
     Serve YOLO-labeled images with bounding boxes to the web browser.
-    
+
     Flask route that serves images with defect annotations (bounding boxes and labels) generated by YOLO detection. 
     These images are displayed in the results page to show detected defects visually.
-    
+
     Args:
         filename: Name of the labeled image file to serve (from URL path)
-    
+
     Returns:
         File response with the requested labeled image file.
     """
     return send_from_directory(LABELS_FOLDER, filename)
+
 
 # ---------------------------------------------------------------------
 # Main Entry Point
 # ---------------------------------------------------------------------
 if __name__ == "__main__":
     # Get configuration from environment variables with sensible defaults
-    
+
     # Host Configuration: '0.0.0.0' allows Flask to accept connections from all network interfaces
     #   This is required for Docker (to accept connections from outside container)
     #   This also works for local development (accepts localhost connections)
     # - 'localhost' or '127.0.0.1' would only work locally, NOT in Docker
     host = os.getenv('FLASK_HOST', '0.0.0.0')
-    
+
     # Port Configuration: Default: 5000 (works for Windows and most systems)
-    port = int(os.getenv('FLASK_PORT', '5000'))
-    
+    port = int(os.getenv('FLASK_PORT', '5001'))
+
     # Suppress Werkzeug's verbose startup messages for cleaner console output
     # References: https://flask.palletsprojects.com/en/3.0.x/logging/#werkzeug-logging
     logging.getLogger('werkzeug').setLevel(logging.ERROR)
-    
-    
+
     print(f"Access the application at: http://localhost:{port}")
-    
+
     app.run(host=host, port=port, debug=True, use_reloader=False)

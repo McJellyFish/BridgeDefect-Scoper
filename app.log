@@ -8,3 +8,17 @@
 2026-03-26 23:31:56,313 - __main__ - INFO - Image saved to: c:\Users\12939\OneDrive\Desktop\CS\AIT 614\bridge_scoper\AIT526_Team3_Project_System\dynamic\uploads\90e5d81b2b518b94_949_jpeg.rf.1da87c61fd97089acb59b6e799218000.jpg
 2026-03-26 23:31:56,672 - __main__ - INFO - YOLO detection completed: 90e5d81b2b518b94_949_jpeg.rf.1da87c61fd97089acb59b6e799218000.jpg
 2026-03-26 23:32:06,483 - __main__ - INFO - LLM report generated successfully
+2026-03-30 22:42:15,494 - __main__ - INFO - Application starting from: /Users/tanu/Desktop/Bridge_Defect_Detector/scripts
+2026-03-30 22:42:15,494 - __main__ - INFO - Project root: /Users/tanu/Desktop/Bridge_Defect_Detector
+2026-03-30 22:44:09,761 - __main__ - INFO - Application starting from: /Users/tanu/Desktop/Bridge_Defect_Detector/scripts
+2026-03-30 22:44:09,762 - __main__ - INFO - Project root: /Users/tanu/Desktop/Bridge_Defect_Detector
+2026-03-30 22:45:15,099 - __main__ - INFO - Processing image upload: Bridge-1.jpg.webp
+2026-03-30 22:45:15,102 - __main__ - INFO - Image saved to: /Users/tanu/Desktop/Bridge_Defect_Detector/dynamic/uploads/2b805ef66c86c922_Bridge-1.jpg.webp
+2026-03-30 22:45:15,343 - __main__ - INFO - YOLO detection completed: 2b805ef66c86c922_Bridge-1.jpg.jpg
+2026-03-30 22:45:28,542 - __main__ - INFO - LLM report generated successfully
+2026-03-31 11:07:55,695 - __main__ - INFO - Application starting from: /Users/tanu/Desktop/Bridge_Defect_Detector/scripts
+2026-03-31 11:07:55,695 - __main__ - INFO - Project root: /Users/tanu/Desktop/Bridge_Defect_Detector
+2026-03-31 11:08:07,330 - __main__ - INFO - Processing image upload: Bridge-1.jpg.webp
+2026-03-31 11:08:07,333 - __main__ - INFO - Image saved to: /Users/tanu/Desktop/Bridge_Defect_Detector/dynamic/uploads/dfb4bc445208c756_Bridge-1.jpg.webp
+2026-03-31 11:08:07,590 - __main__ - INFO - YOLO detection completed: dfb4bc445208c756_Bridge-1.jpg.jpg
+2026-03-31 11:08:20,674 - __main__ - INFO - LLM report generated successfully

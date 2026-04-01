@@ -133,27 +133,29 @@ DEFECT_KNOWLEDGE_BASE = {
 # Google Gemini API usage patterns and multimodal input handling for report generation
 # References:
 #  https://ai.google.dev/gemini-api/docs/
+
+
 def generate_bridge_report(defect_label: str, image_path: str = None, detected_labels: list = None) -> str:
     """
     Generate a structured bridge defect report using Google's Gemini LLM.
-    
+
     This function is the core of the LLM integration, creating comprehensive
     engineering reports based on YOLO detections or text descriptions. It
     handles three distinct cases with different prompt strategies:
-    
+
     1. YOLO-detected defects: Uses knowledge base context to generate detailed defect-specific analysis for each detected type
-    
+
     2. Text-only input: Analyzes text description and provides overall assessmentwith severity rating
-    
+
     3. Image-only (no detections): Validates if image is bridge-related and provides general analysis
-    
+
     The function uses prompt engineering to ensure consistent JSON output format and is suitable for web UI display.
-    
+
     Args:
         defect_label: Summary string describing defects or text input description
         image_path: Optional path to image file for multimodal analysis
         detected_labels: Optional list of defect names detected by YOLO
-    
+
     Returns:
         String containing JSON-formatted report with:
         - is_bridge_related: Boolean validation
@@ -162,7 +164,7 @@ def generate_bridge_report(defect_label: str, image_path: str = None, detected_l
         - detailed_defects: List of defect-specific assessments (if YOLO detections)
         - overall_severity: Severity rating (for text-only inputs)
         - further_recommendations: Additional engineering recommendations
-    
+
     Raises:
         Various exceptions are caught and returned as error strings starting with "(Gemini error:" for handling by the calling function.
     """
@@ -200,7 +202,7 @@ def generate_bridge_report(defect_label: str, image_path: str = None, detected_l
                 kb = DEFECT_KNOWLEDGE_BASE[label]
                 causes_str = '\n- '.join(kb['common_causes'])
                 actions_str = '\n- '.join(kb['recommended_actions'])
-            
+
                 label_block = f"""
                 #### {label.replace('-', ' ').title()}
 
@@ -316,12 +318,14 @@ def generate_bridge_report(defect_label: str, image_path: str = None, detected_l
         # Run Gemini API call (multimodal if image provided)
         # ---------------------------------------------------------------------
         # Gemini supports both text-only and multimodal (text + image) requests
-        print(f"LLM LOG: Sending prompt to Gemini: {prompt[:500]}...")  # Log first 500 chars of prompt
+        # Log first 500 chars of prompt
+        print(f"LLM LOG: Sending prompt to Gemini: {prompt[:500]}...")
 
         if image_path and os.path.exists(image_path):
             # Multimodal request: Send image + text prompt
             # Gemini can analyze image content along with text instructions
-            print(f"LLM LOG: Sending multimodal request with image: {image_path}")
+            print(
+                f"LLM LOG: Sending multimodal request with image: {image_path}")
             response = model.generate_content([
                 genai.upload_file(image_path),  # Upload image for analysis
                 prompt  # Text prompt with instructions
@@ -337,5 +341,6 @@ def generate_bridge_report(defect_label: str, image_path: str = None, detected_l
         return llm_response
 
     except Exception as e:
-        logger.error(f"Error generating bridge report: {str(e)}", exc_info=True)
+        logger.error(
+            f"Error generating bridge report: {str(e)}", exc_info=True)
         return f"(Gemini error: {e})"
